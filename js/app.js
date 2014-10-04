@@ -9,9 +9,11 @@ App.Router.map(function() {
 		this.route('login');
 
 		// user/:user_id
-		this.resource('user.other', { path: '/:user_id' }, function() {
+		this.resource('user.other', function() {
+			// user/:user_id
+			this.route('index', { path: '/:user_id' });
 			// user/:user_id/friends
-			this.route('friends');
+			this.route('friends', { path: '/:user_id/friends' });
 		});
 
 		// user/me
@@ -45,14 +47,19 @@ App.UserLoginController = Ember.ObjectController.extend({
 	}
 });
 
-App.UserOtherRoute = Ember.Route.extend({
+App.UserOtherIndexRoute = Ember.Route.extend({
   	model: function(params) {
-    	return [
-    		{ id: 1, name: 'Peter' },
-    		{ id: 2, name: 'Sam' }
-    	][params.user_id - 1];
+	    return App.User.view(params.user_id);
   	},
+  	serialize: function(model) {
+    	return { user_id: model.get('id') };
+  	}
+});
 
+App.UserOtherFriendsRoute = Ember.Route.extend({
+  	model: function(params) {
+	    return App.User.friendsByUserId(params.user_id);
+  	},
   	serialize: function(model) {
     	return { user_id: model.get('id') };
   	}
@@ -65,7 +72,7 @@ App.UserMeRoute = Ember.Route.extend({
 });
 App.UserMeFriendsRoute = Ember.Route.extend({
   	model: function() {
-    	return App.User.all();
+    	return App.User.myFriends();
 	}
 });
 
@@ -98,12 +105,33 @@ App.User.reopenClass({
 	      	return App.User.create(response.user);
 		});
 	},
-	all: function() {
+	myFriends: function() {
       	return $.getJSON("http://local.ftg/api/v1/user/me/friends").then(function(response) {
+      		console.log(response);
       		var items = [];
-	        response.items.forEach(function(item) {
-	        	items.push(App.User.create(item));
-	        });
+      		if (response.status == 0) {
+		        response.users.forEach(function(item) {
+		        	items.push(App.User.create(item));
+		        });
+		    }
+	      	return items;
+		});
+  	},
+  	view: function(userId) {
+		return $.getJSON("http://local.ftg/api/v1/user/"+userId).then(function(response) {
+			console.log(response);
+	      	return App.User.create(response.user);
+		});
+	},
+  	friendsByUserId: function(userId) {
+  		return $.getJSON("http://local.ftg/api/v1/user/"+userId+"/friends").then(function(response) {
+      		console.log(response);
+      		var items = [];
+      		if (response.status == 0) {
+		        response.users.forEach(function(item) {
+		        	items.push(App.User.create(item));
+		        });
+		    }
 	      	return items;
 		});
   	}

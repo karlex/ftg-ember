@@ -49,18 +49,23 @@
         <h3>My friends</h3>
         <ul>
         {{#each user in model}}
-            <li>{{#link-to 'user.other' user.id}}{{user.name}}{{/link-to}}</li>
+            <li>{{#link-to 'user.other' user.id}}{{user.firstname}} {{user.lastname}}{{/link-to}}</li>
         {{/each}}
         </ul>
     </script>
 
     <script type="text/x-handlebars" id="user/other/index">
-        <h3>{{model.name}} user page</h3>
+        <h3>{{model.firstname}} {{model.lastname}}</h3>
         {{#link-to 'user.other.friends' model.id}}User Friends{{/link-to}}
     </script>
 
     <script type="text/x-handlebars" id="user/other/friends">
         <h3>User friends</h3>
+        <ul>
+        {{#each user in model}}
+            <li>{{#link-to 'user.other' user.id}}{{user.firstname}} {{user.lastname}}{{/link-to}}</li>
+        {{/each}}
+        </ul>
     </script>
 
     <script src="js/libs/jquery-1.10.2.js"></script>
