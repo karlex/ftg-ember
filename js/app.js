@@ -9,7 +9,7 @@ App.Router.map(function() {
 		this.route('login');
 
 		// user/:user_id
-		this.resource('user.other', function() {
+		this.resource('user.other', { path: '/' }, function() {
 			// user/:user_id
 			this.route('index', { path: '/:user_id' });
 			// user/:user_id/friends
@@ -70,69 +70,72 @@ App.UserMeRoute = Ember.Route.extend({
   		return App.User.me();
   	}
 });
+
 App.UserMeFriendsRoute = Ember.Route.extend({
   	model: function() {
     	return App.User.myFriends();
 	}
 });
 
-App.IndexRoute = Ember.Route.extend({
-  	model: function() {
-    	return ['red', 'yellow', 'blue'];
-  	}
-});
+App.HttpRequest = {
+	urlPrefix: 'http://local.ftg/api/v1/',
+	prepareResponse: function(response) {
+		console.log('Response', response);
+		// Если пользователь не авторизован, отправляем его на форму входа
+		if (response.status == 1 && response.message === 'Login Required') {
+			App.Router.router.transitionTo('user.login')
+		}
+		return response;
+	},
+	get: function(url, params) {
+		return $.getJSON(this.urlPrefix + url, params).then(this.prepareResponse);
+	},
+	post: function(url, params) {
+		return $.post(this.urlPrefix + url, params).then(this.prepareResponse);
+	},
+	setToken: function(token) {
+		$.ajaxSetup({
+			headers: { Authentication: 'Token ' + token }
+		});
+	}
+};
 
 App.User = Ember.Object.extend();
 App.User.reopenClass({
-	token: null,
 	login: function(username, password) {
 		var params = {
 			username: username,
 			password: password
 		}
-		return $.post("http://local.ftg/api/v1/user/login", params).then(function(response) {
+		return App.HttpRequest.post('user/login', params).then(function(response) {
 			if (response.status == 0) {
-				$.ajaxSetup({
-					headers: { Authentication: 'Token ' + response.token }
-				});
+				App.HttpRequest.setToken(response.token);
 			}
 			return response;
 		});
 	},
+	prepareUserResponse: function(response) {
+		if (response.status == 0) {
+			return App.User.create(response.user);
+		}
+	},
+	prepareUsersResponse: function(response) {
+		if (response.status == 0) {
+	        return response.users.map(function(item) {
+	        	return App.User.create(item);
+	        });
+	    }
+	},
 	me: function() {
-		return $.getJSON("http://local.ftg/api/v1/user/me").then(function(response) {
-			console.log(response);
-	      	return App.User.create(response.user);
-		});
+		return App.HttpRequest.get('user/me').then(this.prepareUserResponse);
 	},
 	myFriends: function() {
-      	return $.getJSON("http://local.ftg/api/v1/user/me/friends").then(function(response) {
-      		console.log(response);
-      		var items = [];
-      		if (response.status == 0) {
-		        response.users.forEach(function(item) {
-		        	items.push(App.User.create(item));
-		        });
-		    }
-	      	return items;
-		});
+      	return App.HttpRequest.get('user/me/friends').then(this.prepareUsersResponse);
   	},
   	view: function(userId) {
-		return $.getJSON("http://local.ftg/api/v1/user/"+userId).then(function(response) {
-			console.log(response);
-	      	return App.User.create(response.user);
-		});
+		return App.HttpRequest.get('user/' + userId).then(this.prepareUserResponse);
 	},
   	friendsByUserId: function(userId) {
-  		return $.getJSON("http://local.ftg/api/v1/user/"+userId+"/friends").then(function(response) {
-      		console.log(response);
-      		var items = [];
-      		if (response.status == 0) {
-		        response.users.forEach(function(item) {
-		        	items.push(App.User.create(item));
-		        });
-		    }
-	      	return items;
-		});
+  		return App.HttpRequest.get('user/' + userId + '/friends').then(this.prepareUsersResponse);
   	}
 });
